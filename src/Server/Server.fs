@@ -1,5 +1,8 @@
 module Server
 
+open Microsoft.Extensions.Logging
+open FSharp.Logf
+
 open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
 open Saturn
@@ -23,26 +26,31 @@ module Storage =
         addTodo (Todo.create "Write your app") |> ignore
         addTodo (Todo.create "Ship it !!!") |> ignore
 
-let todosApi =
+let todosApi logger =
     { getTodos = fun () -> async { return Storage.todos |> List.ofSeq }
       addTodo =
         fun todo ->
             async {
+                logfi logger "Adding Todo: %A{todo}" todo
                 return
                     match Storage.addTodo todo with
-                    | Ok () -> todo
-                    | Error e -> failwith e
+                    | Ok () ->
+                        logfi logger "Todo added: %A{todo}" todo
+                        todo
+                    | Error e ->
+                        logfe logger "Error while adding Todo: %A{todo} %s{error message}" todo e
+                        failwith e
             } }
 
-let webApp =
+let webApp logger =
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
-    |> Remoting.fromValue todosApi
+    |> Remoting.fromValue (todosApi logger)
     |> Remoting.buildHttpHandler
 
-let app =
+let app logger =
     application {
-        use_router webApp
+        use_router (webApp logger)
         memory_cache
         use_static "public"
         use_gzip
@@ -50,5 +58,9 @@ let app =
 
 [<EntryPoint>]
 let main _ =
-    run app
+    let logger =
+        LoggerFactory
+            .Create(fun builder -> builder.AddConsole().SetMinimumLevel(LogLevel.Information) |> ignore)
+            .CreateLogger()
+    run (app logger)
     0
