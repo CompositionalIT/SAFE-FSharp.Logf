@@ -3,6 +3,8 @@ framework: net6.0
 storage: none
 
 nuget Fsharp.Core ~> 6
+nuget FSharp.Logf
+
 nuget Fable.Remoting.Giraffe
 nuget Saturn
 nuget Expecto
